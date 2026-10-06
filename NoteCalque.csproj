@@ -1,0 +1,115 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{7C1E2B54-9A3D-4F60-9F2A-8B5E1C6D4A21}</ProjectGuid>
+    <OutputType>WinExe</OutputType>
+    <RootNamespace>NoteCalque</RootNamespace>
+    <AssemblyName>NoteCalque</AssemblyName>
+    <!-- 4.8 намеренно: он есть на всех целевых машинах, более свежий .NET
+         потребовал бы ставить рантайм. -->
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <!-- Иначе Проводник показывает у exe пустую иконку. -->
+    <ApplicationIcon>NoteCalque.ico</ApplicationIcon>
+    <!-- Пакеты ссылками, без packages.config: папку packages не нужно ни
+         хранить в репозитории, ни восстанавливать руками. -->
+    <RestoreProjectStyle>PackageReference</RestoreProjectStyle>
+    <WebView2Version>1.0.4191.47</WebView2Version>
+    <!-- Нативный загрузчик рядом с exe не нужен: он уезжает внутрь ресурсами
+         и раскладывается на диск при запуске, см. Program.LoadNativeLoader. -->
+    <WebView2NeverCopyLoaderDllToOutputDirectory>true</WebView2NeverCopyLoaderDllToOutputDirectory>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Configuration" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2">
+      <Version>$(WebView2Version)</Version>
+      <!-- compile — да, копирование в выходной каталог — нет: сборки
+           встроены ресурсами и подставляются из Program.ResolveEmbedded. -->
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </PackageReference>
+    <!-- Ссылочные сборки .NET Framework 4.8 пакетом, а не установкой
+         Developer Pack: иначе MSBuild падает с MSB3644 там, где пакет
+         разработчика не стоит. В саму сборку ничего не попадает. -->
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net48">
+      <Version>1.0.3</Version>
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Src\HotKey.cs" />
+    <Compile Include="Src\KeyStateInfo.cs" />
+    <Compile Include="Src\KeyboardHook.cs" />
+    <Compile Include="Src\KeyboardInfo.cs" />
+    <Compile Include="Src\MainForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Src\PortableSettingsProvider.cs" />
+    <Compile Include="Src\Program.cs" />
+    <Compile Include="Src\Settings.cs" />
+    <Compile Include="Src\Win32.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Страница и math.js уезжают внутрь exe, а не ложатся рядом с ним:
+         каталог с программой может быть недоступен на запись. Раскладывает
+         их по диску MainForm.ExtractWebAssets. -->
+    <!-- Библиотеки WebView2 внутрь exe. Wpf-сборка не нужна вовсе:
+         приложение на WinForms. -->
+    <EmbeddedResource Include="$(NuGetPackageRoot)microsoft.web.webview2\$(WebView2Version)\lib\net462\Microsoft.Web.WebView2.Core.dll">
+      <LogicalName>NoteCalque.Lib.Microsoft.Web.WebView2.Core.dll</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="$(NuGetPackageRoot)microsoft.web.webview2\$(WebView2Version)\lib\net462\Microsoft.Web.WebView2.WinForms.dll">
+      <LogicalName>NoteCalque.Lib.Microsoft.Web.WebView2.WinForms.dll</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="$(NuGetPackageRoot)microsoft.web.webview2\$(WebView2Version)\runtimes\win-x64\native\WebView2Loader.dll">
+      <LogicalName>NoteCalque.Native.x64.WebView2Loader.dll</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="$(NuGetPackageRoot)microsoft.web.webview2\$(WebView2Version)\runtimes\win-x86\native\WebView2Loader.dll">
+      <LogicalName>NoteCalque.Native.x86.WebView2Loader.dll</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Web\index.html" />
+    <EmbeddedResource Include="Web\calc.js" />
+    <EmbeddedResource Include="Web\math.js" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="App.config" />
+    <None Include="Web\math.js.LICENSE.txt" />
+    <None Include="Web\mathjs-LICENSE.txt" />
+    <None Include="tests\calc.test.js" />
+    <Content Include="NoteCalque.ico" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

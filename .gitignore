@@ -1,0 +1,9 @@
+[Bb]in/
+[Oo]bj/
+.vs/
+packages/
+node_modules/
+*.user
+*.suo
+*.pdb
+release/

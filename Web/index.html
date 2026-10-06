@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>NoteCalque</title>
+<style>
+  /* Результат стоит в той же строке, сразу за выражением, как на calque.io.
+     Держится это так: поле ввода обычное и видимое, а поверх него лежит слой,
+     который повторяет каждую строку прозрачным текстом и дописывает результат.
+     Прозрачный двойник нужен, чтобы результат встал ровно там, где кончается
+     выражение, — считать ширину текста самим не приходится.
+
+     Значит, метрика у поля и у слоя обязана совпадать до пикселя: шрифт,
+     размер, высота строки, отступы. Всё это задаётся здесь и только здесь. */
+  :root {
+    --font: Consolas, "Cascadia Mono", "Courier New", monospace;
+    --size: 15px;
+    --line: 22px;
+    --pad: 10px;
+    /* Начертание целиком из выбранного шрифта: своей жирности страница
+       не добавляет ни выражению, ни результату. */
+    --weight: normal;
+    --style: normal;
+
+    --bg: #ffffff;
+    --fg: #1a1a1a;
+    /* Результат одинаково сер в обеих темах и потому объявлен только здесь:
+       ниже темы переопределяют лишь то, что у них действительно разное. */
+    --fg-res: #a0a0a0;
+    --fg-err: #b03030;
+  }
+
+  /* Системная тема: атрибута нет, решает система. */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #1e1f22;
+      --fg: #e6e6e6;
+      --fg-err: #e08d8d;
+    }
+  }
+
+  /* Выбранная руками тема перекрывает системную в обе стороны. */
+  :root[data-theme="dark"] {
+    --bg: #1e1f22;
+    --fg: #e6e6e6;
+    --fg-err: #e08d8d;
+  }
+
+  :root[data-theme="light"] {
+    --bg: #ffffff;
+    --fg: #1a1a1a;
+    --fg-err: #b03030;
+  }
+
+  html, body {
+    height: 100%;
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    overflow: hidden;
+  }
+
+  #wrap {
+    position: relative;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  /* Общее для поля и слоя. Любое расхождение здесь разъезжается на экране. */
+  #editor, #overlay {
+    font-family: var(--font);
+    font-size: var(--size);
+    font-weight: var(--weight);
+    font-style: var(--style);
+    line-height: var(--line);
+    padding: var(--pad);
+    box-sizing: border-box;
+    /* Без переноса: одна логическая строка — одна визуальная, иначе
+       результаты уедут от своих выражений. */
+    white-space: pre;
+    tab-size: 4;
+    letter-spacing: 0;
+  }
+
+  #editor {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    outline: 0;
+    resize: none;
+    background: transparent;
+    color: var(--fg);
+    overflow: auto;
+  }
+
+  /* Слой лежит под полем ввода и сдвигается вслед за его прокруткой.
+     Кликов не ловит: работать пользователь должен с полем. */
+  #overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+    color: transparent;
+  }
+
+  /* Высота строки задаётся жёстко: пустая строка схлопнулась бы в нулевую,
+     и всё, что ниже, уехало бы на строку вверх относительно поля ввода. */
+  #overlay > div {
+    height: var(--line);
+  }
+
+  .res {
+    color: var(--fg-res);
+  }
+
+  .res.err {
+    color: var(--fg-err);
+    opacity: .8;
+  }
+</style>
+</head>
+<body>
+  <div id="wrap">
+    <div id="overlay"></div>
+    <textarea id="editor" spellcheck="false" autocomplete="off" autocapitalize="off" wrap="off"></textarea>
+  </div>
+
+  <script src="math.js"></script>
+  <script src="calc.js"></script>
+  <script>
+  (function () {
+    'use strict';
+
+    var editor = document.getElementById('editor');
+    var overlay = document.getElementById('overlay');
+    var host = window.chrome && window.chrome.webview ? window.chrome.webview : null;
+
+    var rows = [];
+
+    function escapeHtml(s) {
+      return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    // --- пересчёт ----------------------------------------------------------
+
+    function render() {
+      var lines = editor.value.split('\n');
+      rows = Calc.evaluate(editor.value);
+      var html = '';
+      for (var i = 0; i < lines.length; i++) {
+        var row = rows[i] || { text: '', error: false };
+        // Прозрачная копия строки задаёт результату место; сам результат
+        // приписывается следом, как продолжение той же строки.
+        html += '<div>' + escapeHtml(lines[i]);
+        if (row.text !== '') {
+          html += '<span class="res' + (row.error ? ' err' : '') + '">' +
+                  (row.error ? '  ' : '  = ') + escapeHtml(row.text) + '</span>';
+        }
+        html += '</div>';
+      }
+      overlay.innerHTML = html;
+      syncScroll();
+    }
+
+    // Считать на каждое нажатие можно, но на длинном тексте это заметно;
+    // кадр задержки глазом не виден и убирает лишние проходы при удержании.
+    var pending = 0;
+    function schedule() {
+      if (pending) return;
+      pending = requestAnimationFrame(function () {
+        pending = 0;
+        render();
+        pushText();
+      });
+    }
+
+    // Пересчитать немедленно, не дожидаясь кадра. Нужно там, где результат
+    // требуется прямо сейчас: отложенный пересчёт отстал бы от набора на строку.
+    function flush() {
+      if (pending) {
+        cancelAnimationFrame(pending);
+        pending = 0;
+      }
+      render();
+    }
+
+    function syncScroll() {
+      overlay.style.transform =
+        'translate(' + (-editor.scrollLeft) + 'px,' + (-editor.scrollTop) + 'px)';
+    }
+
+    // --- подхват предыдущего результата ------------------------------------
+    //
+    // Знак арифметики в начале пустой строки продолжает счёт: перед ним
+    // подставляется «_» — короткое имя для last. Привычка из NoteCalc, но
+    // подставляется имя, а не само число: число попало бы в строку уже
+    // округлённым до выбранной точности, и счёт поехал бы. С «_» продолжение
+    // считается по полному значению.
+
+    var CONTINUE_KEYS = '+-*/^';
+
+    function previousResult(lineIndex) {
+      for (var i = lineIndex - 1; i >= 0; i--) {
+        var row = rows[i];
+        if (row && !row.error && row.text !== '')
+          return row.text;
+      }
+      return null;
+    }
+
+    function lineStartOffset(pos) {
+      var before = editor.value.slice(0, pos);
+      var nl = before.lastIndexOf('\n');
+      return nl + 1;
+    }
+
+    function lineIndexAt(pos) {
+      return editor.value.slice(0, pos).split('\n').length - 1;
+    }
+
+    function tryContinue(e) {
+      if (e.ctrlKey || e.altKey || e.metaKey) return false;
+      if (e.key.length !== 1 || CONTINUE_KEYS.indexOf(e.key) < 0) return false;
+      if (editor.selectionStart !== editor.selectionEnd) return false;
+
+      var pos = editor.selectionStart;
+      var start = lineStartOffset(pos);
+      // Только в начале строки: дальше знак значит ровно то, что написано.
+      if (editor.value.slice(start, pos).trim() !== '') return false;
+
+      flush();
+      var result = previousResult(lineIndexAt(pos));
+      if (result === null) return false;
+
+      e.preventDefault();
+      insert('_' + e.key);
+      return true;
+    }
+
+    // --- обмен с приложением ----------------------------------------------
+    //
+    // Текст хранит C#: он же переживает закрытие окна. Отсюда текст только
+    // отдаётся наружу при каждом изменении, чтобы на стороне приложения всегда
+    // лежала свежая копия и её было чем записать в настройки.
+
+    var lastSent = null;
+    function pushText() {
+      if (!host) return;
+      if (editor.value === lastSent) return;
+      lastSent = editor.value;
+      host.postMessage('T' + editor.value);
+    }
+
+    function setText(text) {
+      editor.value = text || '';
+      lastSent = editor.value;
+      render();
+      cursorToEnd();
+    }
+
+    function cursorToEnd() {
+      var end = editor.value.length;
+      try { editor.setSelectionRange(end, end); } catch (e) { /* поле могло быть скрыто */ }
+      editor.scrollTop = editor.scrollHeight;
+      syncScroll();
+    }
+
+    var INDENT = '    ';
+
+    // Отступ целыми строками: Tab добавляет, Shift+Tab снимает. Работает по
+    // всем строкам, которых касается выделение, а без выделения — по текущей.
+    // Отступы здесь не украшение: по ним считаются суммы блоков.
+    function shiftIndent(indent) {
+      var value = editor.value;
+      var selStart = editor.selectionStart;
+      var selEnd = editor.selectionEnd;
+      var from = lineStartOffset(selStart);
+      var to = value.indexOf('\n', selEnd);
+      if (to < 0) to = value.length;
+
+      var first = 0;
+      var total = 0;
+      var lines = value.slice(from, to).split('\n').map(function (line, i) {
+        var delta = 0;
+        if (indent) {
+          line = INDENT + line;
+          delta = INDENT.length;
+        } else {
+          // Снимаем один уровень: табуляцию или до четырёх пробелов.
+          var lead = /^(\t| {1,4})/.exec(line);
+          if (lead) {
+            line = line.slice(lead[0].length);
+            delta = -lead[0].length;
+          }
+        }
+        if (i === 0) first = delta;
+        total += delta;
+        return line;
+      });
+      if (total === 0 && !indent) return;
+
+      editor.value = value.slice(0, from) + lines.join('\n') + value.slice(to);
+      editor.setSelectionRange(
+        Math.max(from, selStart + first),
+        Math.max(from, selEnd + total));
+      schedule();
+    }
+
+    // Возвращаемся после долгого перерыва: старая запись дописывается редко,
+    // а курсор в конце прошлой строки выглядит как приглашение продолжить её.
+    // Пустых строк не плодим — вызвать окно можно сколько угодно раз подряд.
+    function appendBlankLine() {
+      if (/(^|\n)[ \t]*$/.test(editor.value)) return;
+      editor.value += '\n';
+      schedule();
+    }
+
+    function insert(text) {
+      var start = editor.selectionStart;
+      var end = editor.selectionEnd;
+      editor.value = editor.value.slice(0, start) + text + editor.value.slice(end);
+      var pos = start + text.length;
+      editor.setSelectionRange(pos, pos);
+      schedule();
+    }
+
+    // Настройки приходят одной строкой:
+    // тема|шрифт|размер в пунктах|точность|полужирный|курсив.
+    // Разделитель — вертикальная черта, в именах шрифтов её не бывает.
+    function applyConfig(body) {
+      var parts = body.split('|');
+      var theme = parts[0] || 'system';
+      var family = parts[1] || '';
+      var size = parseFloat(parts[2]);
+      if (parts.length > 3) Calc.setPrecision(parts[3]);
+
+      if (theme === 'light' || theme === 'dark')
+        document.documentElement.setAttribute('data-theme', theme);
+      else
+        document.documentElement.removeAttribute('data-theme');
+
+      var root = document.documentElement.style;
+      if (family)
+        root.setProperty('--font', '"' + family + '", Consolas, monospace');
+      if (size > 0) {
+        root.setProperty('--size', size + 'pt');
+        // Высота строки считается от размера: слой и поле обязаны сойтись,
+        // а значение должно быть целым числом пикселей, иначе строки поплывут.
+        root.setProperty('--line', Math.round(size * 96 / 72 * 1.45) + 'px');
+      }
+      root.setProperty('--weight', parts[4] === '1' ? 'bold' : 'normal');
+      root.setProperty('--style', parts[5] === '1' ? 'italic' : 'normal');
+      // Точность могла измениться — числа надо пересчитать, а не только
+      // перекрасить.
+      flush();
+    }
+
+    if (host) {
+      // Протокол нарочно строковый и односимвольный: I — начальный текст,
+      // S — подстановка символа, F — вернуть фокус (F1 — окно было спрятано
+      // долго: курсор в конец и с новой строки), C — тема и шрифт.
+      // Текста в сообщении может быть сколько угодно и любой формы,
+      // а разбирать его нечем и незачем.
+      host.addEventListener('message', function (e) {
+        var m = typeof e.data === 'string' ? e.data : '';
+        var kind = m.charAt(0);
+        var body = m.slice(1);
+        if (kind === 'I') setText(body);
+        else if (kind === 'S') insert(body);
+        else if (kind === 'F') {
+          editor.focus();
+          // Вернулись быстро — курсор остаётся там, где его бросили: скорее
+          // всего окно прятали посреди правки. После долгого перерыва правку
+          // уже не помнят, и начинать удобнее с чистой строки в конце.
+          if (body === '1') { appendBlankLine(); cursorToEnd(); }
+        }
+        else if (kind === 'C') applyConfig(body);
+      });
+    }
+
+    // --- события -----------------------------------------------------------
+
+    editor.addEventListener('input', schedule);
+    editor.addEventListener('scroll', syncScroll);
+    window.addEventListener('resize', syncScroll);
+
+    editor.addEventListener('keydown', function (e) {
+      if (tryContinue(e)) return;
+      if (e.key !== 'Tab') return;
+      e.preventDefault();
+      if (e.shiftKey) shiftIndent(false);
+      else if (editor.selectionStart !== editor.selectionEnd) shiftIndent(true);
+      else insert(INDENT);
+    });
+
+    render();
+    editor.focus();
+
+    // Приложение ждёт сигнала, что страница готова принимать сообщения:
+    // init, отправленный раньше, потерялся бы.
+    if (host) host.postMessage('R');
+  })();
+  </script>
+</body>
+</html>

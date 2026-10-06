@@ -1,0 +1,3 @@
+# Проект под Windows и Visual Studio: в рабочем дереве всегда CRLF.
+* text=auto eol=crlf
+*.ico binary
