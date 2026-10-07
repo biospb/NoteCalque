@@ -11,4 +11,4 @@ using System.Runtime.InteropServices;
 // AssemblyFileVersion. Версия сборки входит в имена, по которым .NET ищет
 // чужие настройки и привязки, и её движение ломает больше, чем сообщает.
 [assembly: AssemblyVersion("1.0.0.0")]
-[assembly: AssemblyFileVersion("1.0.1.0")]
+[assembly: AssemblyFileVersion("1.0.2.0")]

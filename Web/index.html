@@ -140,7 +140,7 @@
     var rows = [];
 
     function escapeHtml(s) {
-      return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
     // --- пересчёт ----------------------------------------------------------
@@ -155,11 +155,13 @@
         // приписывается следом, как продолжение той же строки.
         html += '<div>' + escapeHtml(lines[i]);
         if (row.text !== '') {
-          html += '<span class="res' + (row.error ? ' err' : '') + '">' +
-                  (row.error ? '  ' : '  = ') + escapeHtml(row.text) + '</span>';
+          html += '<span class="res' + (row.error ? ' err' : '') + '"' +
+                  (row.error ? ' title="' + escapeHtml(row.text) + '"' : '') + '>' +
+                  (row.error ? '  Ошибка' : '  = ' + escapeHtml(row.text)) + '</span>';
         }
         html += '</div>';
       }
+      editor.removeAttribute('title');
       overlay.innerHTML = html;
       syncScroll();
     }
@@ -381,6 +383,26 @@
     }
 
     // --- события -----------------------------------------------------------
+
+    // Поле ввода находится поверх результатов: подсказку показывает оно,
+    // а попадание на надпись ошибки проверяем по координатам нижнего слоя.
+    editor.addEventListener('mousemove', function (e) {
+      var errors = overlay.querySelectorAll('.res.err');
+      var message = '';
+      for (var i = 0; i < errors.length; i++) {
+        var bounds = errors[i].getBoundingClientRect();
+        if (e.clientX >= bounds.left && e.clientX <= bounds.right &&
+            e.clientY >= bounds.top && e.clientY <= bounds.bottom) {
+          message = errors[i].title;
+          break;
+        }
+      }
+      if (message) editor.title = message;
+      else editor.removeAttribute('title');
+    });
+    editor.addEventListener('mouseleave', function () {
+      editor.removeAttribute('title');
+    });
 
     editor.addEventListener('input', schedule);
     editor.addEventListener('scroll', syncScroll);

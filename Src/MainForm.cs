@@ -1,4 +1,4 @@
-﻿// Окно приложения.
+// Окно приложения.
 //
 // Всё, что связано с клавиатурой и окном, живёт здесь и в четырёх файлах,
 // перенесённых из NoteCalc без изменений: Win32, HotKey, KeyboardHook,
@@ -21,6 +21,7 @@ namespace NoteCalque
     // движок считает страницу и её же скрипты разными источниками и запрещает
     // половину обычных вещей.
     private const string VirtualHost = "notecalque.local";
+    private const string StartupRegistryPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
 
     // Одно нажатие NumLock приезжает сюда до трёх раз: от хука, от
     // RegisterHotKey и ещё раз от компенсирующей эмуляции. Дублирование
@@ -217,6 +218,32 @@ namespace NoteCalque
       };
       menu.Items.Add((ToolStripItem) this.numLockActivateItem);
 
+      ToolStripMenuItem startup = new ToolStripMenuItem("Автозапуск");
+      startup.ToolTipText = "Запускать NoteCalque при входе в Windows для текущего пользователя";
+      menu.Items.Add((ToolStripItem) startup);
+      menu.Opening += delegate { this.RefreshStartupItem(startup); };
+      startup.Click += delegate
+      {
+        try
+        {
+          using (Microsoft.Win32.RegistryKey key =
+            Microsoft.Win32.Registry.CurrentUser.CreateSubKey(StartupRegistryPath))
+          {
+            if (key.GetValue("NoteCalque") != null)
+              key.DeleteValue("NoteCalque", false);
+            else
+              key.SetValue("NoteCalque", "\"" + Application.ExecutablePath + "\"",
+                Microsoft.Win32.RegistryValueKind.String);
+          }
+        }
+        catch (Exception ex)
+        {
+          MessageBox.Show("Не удалось изменить автозапуск." + Environment.NewLine + ex.Message,
+            "NoteCalque", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+        this.RefreshStartupItem(startup);
+      };
+
       this.startMinimizedItem = new ToolStripMenuItem("Сворачивать при запуске");
       this.startMinimizedItem.CheckOnClick = true;
       this.startMinimizedItem.Checked = Settings.Default.StartMinimized;
@@ -257,6 +284,24 @@ namespace NoteCalque
       folder.Click += delegate { this.OpenSettingsFolder(); };
       menu.Items.Add((ToolStripItem) folder);
 
+      string version = System.Diagnostics.FileVersionInfo.GetVersionInfo(Application.ExecutablePath).FileVersion;
+      ToolStripMenuItem about = new ToolStripMenuItem("NoteCalque " + version);
+      about.ToolTipText = "Открыть страницу проекта на GitHub";
+      about.Click += delegate
+      {
+        try
+        {
+          System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(
+            "https://github.com/biospb/NoteCalque") { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+          MessageBox.Show("Не удалось открыть страницу проекта." + Environment.NewLine + ex.Message,
+            "NoteCalque", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+      };
+      menu.Items.Add((ToolStripItem) about);
+
       ToolStripMenuItem exit = new ToolStripMenuItem("Выход");
       exit.Click += delegate
       {
@@ -270,6 +315,26 @@ namespace NoteCalque
       this.tray.ContextMenuStrip = menu;
       this.tray.Visible = true;
       this.tray.MouseDoubleClick += new MouseEventHandler(this.Tray_MouseDoubleClick);
+    }
+
+    // Реестр — единственный источник состояния: отдельная настройка в XML
+    // могла бы расходиться с записью, изменённой вне приложения.
+    private void RefreshStartupItem(ToolStripMenuItem item)
+    {
+      try
+      {
+        using (Microsoft.Win32.RegistryKey key =
+          Microsoft.Win32.Registry.CurrentUser.OpenSubKey(StartupRegistryPath))
+          item.Checked = key != null && key.GetValue("NoteCalque") != null;
+        item.Enabled = true;
+        item.ToolTipText = "Запускать NoteCalque при входе в Windows для текущего пользователя";
+      }
+      catch (Exception ex)
+      {
+        item.Checked = false;
+        item.Enabled = false;
+        item.ToolTipText = "Не удалось прочитать состояние автозапуска: " + ex.Message;
+      }
     }
 
     private void Tray_MouseDoubleClick(object sender, MouseEventArgs e)

@@ -96,7 +96,9 @@
     if (text.charAt(0) === '#') return false;
     // Одинокое «_» — тоже выражение: это предыдущий результат.
     if (text === '_') return true;
-    if (!/\d/.test(text) && !/[+\-*/^=]/.test(text)) return false;
+    // Вызов функции тоже выражение, даже без цифр: sqrt(x), abs(_).
+    var isFunctionCall = /^[A-Za-z_Ѐ-ӿԀ-ԯ][\wЀ-ӿԀ-ԯ]*\s*\(/.test(text);
+    if (!/\d/.test(text) && !/[+\-*/^=]/.test(text) && !isFunctionCall) return false;
     // «Итого:» и «Заметка — про счёт» выражениями не являются.
     if (/[:—]$/.test(text)) return false;
     return true;
