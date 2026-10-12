@@ -604,6 +604,18 @@ namespace NoteCalque
         this.saveTimer.Stop();
         this.saveTimer.Start();
       }
+      else if (message[0] == 'K' && message.Length > 1)
+      {
+        try
+        {
+          Clipboard.SetText(message.Substring(1));
+        }
+        catch (System.Runtime.InteropServices.ExternalException)
+        {
+          MessageBox.Show(this, "Не удалось скопировать результат: буфер обмена занят. Попробуйте ещё раз.",
+            "NoteCalque", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+      }
     }
 
     private void Post(string message)

@@ -155,7 +155,7 @@
         // приписывается следом, как продолжение той же строки.
         html += '<div>' + escapeHtml(lines[i]);
         if (row.text !== '') {
-          html += '<span class="res' + (row.error ? ' err' : '') + '"' +
+          html += '<span data-row="' + i + '" class="res' + (row.error ? ' err' : '') + '"' +
                   (row.error ? ' title="' + escapeHtml(row.text) + '"' : '') + '>' +
                   (row.error ? '  Ошибка' : '  = ' + escapeHtml(row.text)) + '</span>';
         }
@@ -384,24 +384,48 @@
 
     // --- события -----------------------------------------------------------
 
+    function resultAt(e) {
+      var results = overlay.querySelectorAll('.res');
+      for (var i = 0; i < results.length; i++) {
+        var bounds = results[i].getBoundingClientRect();
+        if (e.clientX >= bounds.left && e.clientX <= bounds.right &&
+            e.clientY >= bounds.top && e.clientY <= bounds.bottom)
+          return results[i];
+      }
+      return null;
+    }
+
+    // Результат под полем: попадание проверяем в координатах экрана,
+    // уже с учётом прокрутки. Копируем только значение, без «=».
+    editor.addEventListener('mousedown', function (e) {
+      var result = resultAt(e);
+      if (e.button === 0 && result && !rows[result.dataset.row].error)
+        e.preventDefault(); // не менять курсор и выделение выражения
+    });
+    editor.addEventListener('dblclick', function (e) {
+      var result = resultAt(e);
+      if (e.button !== 0 || !result) return;
+      var row = rows[result.dataset.row];
+      if (!row || row.error) return;
+      e.preventDefault();
+      if (host) host.postMessage('K' + row.text);
+      else navigator.clipboard.writeText(row.text).catch(function () {
+        window.alert('Не удалось скопировать результат в буфер обмена.');
+      });
+    });
+
     // Поле ввода находится поверх результатов: подсказку показывает оно,
     // а попадание на надпись ошибки проверяем по координатам нижнего слоя.
     editor.addEventListener('mousemove', function (e) {
-      var errors = overlay.querySelectorAll('.res.err');
-      var message = '';
-      for (var i = 0; i < errors.length; i++) {
-        var bounds = errors[i].getBoundingClientRect();
-        if (e.clientX >= bounds.left && e.clientX <= bounds.right &&
-            e.clientY >= bounds.top && e.clientY <= bounds.bottom) {
-          message = errors[i].title;
-          break;
-        }
-      }
+      var result = resultAt(e);
+      var message = result && result.classList.contains('err') ? result.title : '';
+      editor.style.cursor = result && !message ? 'copy' : '';
       if (message) editor.title = message;
       else editor.removeAttribute('title');
     });
     editor.addEventListener('mouseleave', function () {
       editor.removeAttribute('title');
+      editor.style.cursor = '';
     });
 
     editor.addEventListener('input', schedule);
