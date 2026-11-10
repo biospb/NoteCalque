@@ -248,6 +248,7 @@
     // лежала свежая копия и её было чем записать в настройки.
 
     var lastSent = null;
+    var restoreScrollPending = false;
     function pushText() {
       if (!host) return;
       if (editor.value === lastSent) return;
@@ -260,6 +261,18 @@
       lastSent = editor.value;
       render();
       cursorToEnd();
+      // WebView может восстановить размер/прокрутку после сообщения init.
+      // Повторяем прокрутку после раскладки, в том числе при показе из трея.
+      restoreScrollPending = true;
+      requestAnimationFrame(restoreScroll);
+    }
+
+    function restoreScroll() {
+      if (restoreScrollPending && editor.clientHeight > 0) {
+        editor.scrollTop = editor.scrollHeight;
+        restoreScrollPending = false;
+      }
+      syncScroll();
     }
 
     function cursorToEnd() {
@@ -428,9 +441,12 @@
       editor.style.cursor = '';
     });
 
-    editor.addEventListener('input', schedule);
+    editor.addEventListener('input', function () {
+      restoreScrollPending = false;
+      schedule();
+    });
     editor.addEventListener('scroll', syncScroll);
-    window.addEventListener('resize', syncScroll);
+    window.addEventListener('resize', restoreScroll);
 
     editor.addEventListener('keydown', function (e) {
       if (tryContinue(e)) return;

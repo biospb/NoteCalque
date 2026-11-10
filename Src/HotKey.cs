@@ -12,6 +12,11 @@ namespace NoteCalque
     private IntPtr handle;
     private bool IsInit;
 
+    [DllImport("user32.dll")]
+    private static extern int GetMessageTime();
+
+    public uint MessageTime { get; private set; }
+
     [DllImport("user32.dll", SetLastError = true)]
     private static extern bool RegisterHotKey(
       IntPtr hWnd,
@@ -60,6 +65,7 @@ namespace NoteCalque
     {
       if (m.Msg != 786)
         return false;
+      this.MessageTime = unchecked ((uint) HotKey.GetMessageTime());
       this.HotKeyPressed((object) this, new EventArgs());
       return true;
     }

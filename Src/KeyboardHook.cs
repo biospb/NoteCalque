@@ -84,6 +84,15 @@ namespace NoteCalque
     private readonly LowLevelKeyboardProc proc;
     private IntPtr hook;
     private bool isDown;
+    private bool hasObservedNumLock;
+    private uint lastNumLockTime;
+
+    // WM_HOTKEY приходит позднее хука, в том числе от нашей эмуляции.
+    // Сравниваем время самого ввода, а не время обработки очереди.
+    public bool HasObservedNumLock(uint time)
+    {
+      return this.hasObservedNumLock && unchecked ((int) (time - this.lastNumLockTime)) <= 0;
+    }
 
     // Спрашивается перед починкой рассинхрона: нужна ли она сейчас.
     public Func<bool> RepairWanted;
@@ -91,8 +100,8 @@ namespace NoteCalque
     // Куда положить символ вместо нажатия, приехавшего стрелкой.
     public Action<string> Substitute;
 
-    // Отслеживаемая клавиша нажата вживую, состояние только что переключилось.
-    // Обработчику остаётся дослать встречное переключение и показать окно.
+    // Отслеживаемая клавиша нажата вживую. Хук вызывается до обновления
+    // состояния Windows, поэтому читать новый toggle-бит здесь ещё рано.
     public event EventHandler Toggled;
 
     // Замечен рассинхрон: система транслирует цифровой блок в стрелки.
@@ -120,8 +129,13 @@ namespace NoteCalque
 
     private IntPtr HookProc(int nCode, IntPtr wParam, ref KBDLLHOOKSTRUCT lParam)
     {
-      // Чужое событие либо наша же эмуляция (LLKHF_INJECTED — так досылается
-      // встречное переключение) — не наше дело, пропускаем.
+      // Запоминаем и физический ввод, и эмуляцию для фильтра WM_HOTKEY.
+      if (nCode == HC_ACTION && lParam.vkCode == this.vkCode)
+      {
+        this.hasObservedNumLock = true;
+        this.lastNumLockTime = lParam.time;
+      }
+      // Эмуляция меняет состояние клавиатуры, но не вызывает окно повторно.
       if (nCode != HC_ACTION || (lParam.flags & LLKHF_INJECTED) != 0U)
         return KeyboardHook.CallNextHookEx(this.hook, nCode, wParam, ref lParam);
 

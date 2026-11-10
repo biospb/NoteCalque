@@ -43,6 +43,7 @@ namespace NoteCalque
     private readonly NotifyIcon tray = new NotifyIcon();
     private readonly Timer numLockRepairTimer = new Timer();
     private readonly Timer saveTimer = new Timer();
+    private bool numLockRepairRequired;
 
     private HotKey numLockKey;
     private KeyboardHook numLockHook;
@@ -148,6 +149,8 @@ namespace NoteCalque
         // фоном и вызывается по NumLock.
         if (this.Visible)
           this.hideTick = Environment.TickCount;
+        this.numLockRepairTimer.Stop();
+        this.numLockRepairRequired = false;
         this.Visible = false;
       }
       else
@@ -698,6 +701,11 @@ namespace NoteCalque
     // 300 мс), поэтому работу откладываем в очередь сообщений.
     private void OnHotKeyPressed(object sender, EventArgs e)
     {
+      // Хук уже обработал этот ввод. WM_HOTKEY от компенсирующего нажатия
+      // тоже пропускаем, даже если очередь задержалась дольше SummonGuardMs.
+      if (sender == this.numLockKey && this.numLockHook != null &&
+          this.numLockHook.HasObservedNumLock(this.numLockKey.MessageTime))
+        return;
       if (!this.SummonRequested())
         return;
       if (this.IsHandleCreated)
@@ -706,8 +714,8 @@ namespace NoteCalque
         this.MinimizeMaximize();
     }
 
-    // Хук увидел живое нажатие NumLock. Состояние уже переключилось — досылаем
-    // встречное переключение немедленно, не дожидаясь отпускания клавиши:
+    // Хук увидел живое нажатие NumLock. Ставим встречное переключение
+    // в очередь немедленно, не дожидаясь отпускания клавиши:
     // именно эта задержка в прежней реализации и давала полсекунды стрелок.
     //
     // В окне RDP-клиента не компенсируем: там NumLock должен работать как
@@ -778,7 +786,9 @@ namespace NoteCalque
     {
       if (!Settings.Default.NumLockActivate)
         return;
-      Win32.NumLock(true);
+      // Состояние нельзя читать внутри обработки исходного NumLock:
+      // компенсация ещё находится в очереди ввода. Дожидаемся её доставки.
+      this.numLockRepairTimer.Start();
     }
 
     private void MainForm_Activated(object sender, EventArgs e)
@@ -802,18 +812,29 @@ namespace NoteCalque
     // задерживается и не рискует выйти за LowLevelHooksTimeout.
     private void OnNumpadDesync(object sender, EventArgs e)
     {
+      // Пока ждём завершения вызова, стрелочная клавиша может быть следствием
+      // ещё не доставленной компенсации. Сначала выполняем обычное включение.
       if (this.numLockRepairTimer.Enabled)
         return;
+      this.numLockRepairRequired = true;
       this.numLockRepairTimer.Enabled = true;
     }
 
     private void NumLockRepairTimer_Tick(object sender, EventArgs e)
     {
-      this.numLockRepairTimer.Enabled = false;
       // Пока клавиша не отпущена, переключение не возьмётся — ждём следующего тика.
       if (KeyboardInfo.GetAsyncKeyState(Keys.NumLock).IsPressed)
         return;
-      Win32.ToggleNumLock();
+      this.numLockRepairTimer.Stop();
+      bool repair = this.numLockRepairRequired;
+      this.numLockRepairRequired = false;
+      if (!Settings.Default.NumLockActivate || !this.Visible ||
+          Win32.GetForegroundWindow() != this.Handle)
+        return;
+      if (repair)
+        Win32.ToggleNumLock();
+      else
+        Win32.NumLock(true);
     }
   }
 }

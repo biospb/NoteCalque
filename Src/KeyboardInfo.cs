@@ -18,7 +18,7 @@ namespace NoteCalque
     {
       byte[] bytes = BitConverter.GetBytes(KeyboardInfo.GetKeyState((int) key));
       bool istoggled = bytes[0] == (byte) 1;
-      bool ispressed = bytes[1] == (byte) 1;
+      bool ispressed = (bytes[1] & 0x80) != 0;
       return new KeyStateInfo(key, ispressed, istoggled);
     }
 
@@ -29,7 +29,7 @@ namespace NoteCalque
     {
       byte[] bytes = BitConverter.GetBytes(KeyboardInfo.GetAsyncKeyState((int) key));
       bool istoggled = bytes[0] == (byte) 1;
-      bool ispressed = bytes[1] == (byte) 1;
+      bool ispressed = (bytes[1] & 0x80) != 0;
       return new KeyStateInfo(key, ispressed, istoggled);
     }
   }
