@@ -1,6 +1,8 @@
 # NoteCalque
 
-Текущая версия: **1.0.4.0**.
+Текущая версия: **1.0.5.0**.
+
+[English README](README.en.md)
 
 Калькулятор-блокнот в духе [calque.io](https://calque.io/index.html): слева многострочное поле с выражениями, справа результаты построчно. Живёт в трее, вызывается по **NumLock**, содержимое переживает закрытие.
 
@@ -11,6 +13,11 @@
 Двойной клик по результату копирует его в буфер обмена без знака `=`.
 
 ![Общий вид NoteCalque: выражения и результаты вычислений](docs/images/app.png)
+
+## Изменения в 1.0.5.0
+
+- Английский интерфейс с автоматическим выбором по языку интерфейса Windows. Для русского используется русский, для остальных языков — английский.
+- Добавлен [README на английском](README.en.md).
 
 ## Изменения в 1.0.4.0
 
@@ -108,10 +115,12 @@ _*3          = 10
 Пункт «Автозапуск» включает запуск при входе в Windows для текущего пользователя.
 Он создаёт запись `NoteCalque` в `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`;
 отключение удаляет эту запись. Если перенесли exe, выключите и снова включите
-автозапуск, чтобы обновить путь. Пункт «NoteCalque 1.0.4.0» открывает страницу
+автозапуск, чтобы обновить путь. Пункт «NoteCalque 1.0.5.0» открывает страницу
 проекта на GitHub.
 
 Настройки запоминаются. Точность — в значащих цифрах, по умолчанию 12.
+
+Язык интерфейса определяется при запуске по языку интерфейса Windows. Для русского используется русский, для остальных языков — английский.
 
 ## Устройство
 
@@ -186,6 +195,10 @@ msbuild NoteCalque.csproj -p:Configuration=Release
 ```
 node tests\calc.test.js
 node tests\result-copy.test.js
+node tests\startup-scroll.test.js
+node tests\language.test.js
+powershell -NoProfile -ExecutionPolicy Bypass -File tests\ui-language.test.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File tests\hotkey-routing.test.ps1
 ```
 
 ## Лицензия

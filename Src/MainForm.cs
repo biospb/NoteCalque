@@ -206,13 +206,13 @@ namespace NoteCalque
     {
       ContextMenuStrip menu = new ContextMenuStrip();
 
-      ToolStripMenuItem open = new ToolStripMenuItem("Открыть");
+      ToolStripMenuItem open = new ToolStripMenuItem(UiLanguage.Text("Открыть", "Open"));
       open.Font = new Font(menu.Font, FontStyle.Bold);
       open.Click += delegate { this.MinimizeMaximize(); };
       menu.Items.Add((ToolStripItem) open);
       menu.Items.Add((ToolStripItem) new ToolStripSeparator());
 
-      this.numLockActivateItem = new ToolStripMenuItem("Активировать NumLock при вызове");
+      this.numLockActivateItem = new ToolStripMenuItem(UiLanguage.Text("Активировать NumLock при вызове", "Enable NumLock when opening"));
       this.numLockActivateItem.CheckOnClick = true;
       this.numLockActivateItem.Checked = Settings.Default.NumLockActivate;
       this.numLockActivateItem.CheckedChanged += delegate
@@ -221,8 +221,8 @@ namespace NoteCalque
       };
       menu.Items.Add((ToolStripItem) this.numLockActivateItem);
 
-      ToolStripMenuItem startup = new ToolStripMenuItem("Автозапуск");
-      startup.ToolTipText = "Запускать NoteCalque при входе в Windows для текущего пользователя";
+      ToolStripMenuItem startup = new ToolStripMenuItem(UiLanguage.Text("Автозапуск", "Start with Windows"));
+      startup.ToolTipText = UiLanguage.Text("Запускать NoteCalque при входе в Windows для текущего пользователя", "Start NoteCalque when the current user signs in to Windows");
       menu.Items.Add((ToolStripItem) startup);
       menu.Opening += delegate { this.RefreshStartupItem(startup); };
       startup.Click += delegate
@@ -241,13 +241,13 @@ namespace NoteCalque
         }
         catch (Exception ex)
         {
-          MessageBox.Show("Не удалось изменить автозапуск." + Environment.NewLine + ex.Message,
+          MessageBox.Show(UiLanguage.Text("Не удалось изменить автозапуск.", "Could not change the startup setting.") + Environment.NewLine + ex.Message,
             "NoteCalque", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
         this.RefreshStartupItem(startup);
       };
 
-      this.startMinimizedItem = new ToolStripMenuItem("Сворачивать при запуске");
+      this.startMinimizedItem = new ToolStripMenuItem(UiLanguage.Text("Сворачивать при запуске", "Start minimized"));
       this.startMinimizedItem.CheckOnClick = true;
       this.startMinimizedItem.Checked = Settings.Default.StartMinimized;
       this.startMinimizedItem.CheckedChanged += delegate
@@ -256,7 +256,7 @@ namespace NoteCalque
       };
       menu.Items.Add((ToolStripItem) this.startMinimizedItem);
 
-      this.alwaysOnTopItem = new ToolStripMenuItem("Поверх всех окон");
+      this.alwaysOnTopItem = new ToolStripMenuItem(UiLanguage.Text("Поверх всех окон", "Always on top"));
       this.alwaysOnTopItem.CheckOnClick = true;
       this.alwaysOnTopItem.Checked = Settings.Default.AlwaysOnTop;
       this.alwaysOnTopItem.CheckedChanged += delegate
@@ -266,30 +266,30 @@ namespace NoteCalque
       };
       menu.Items.Add((ToolStripItem) this.alwaysOnTopItem);
 
-      ToolStripMenuItem theme = new ToolStripMenuItem("Тема");
-      this.themeSystemItem = this.ThemeItem(theme, "Системная", "system");
-      this.themeLightItem = this.ThemeItem(theme, "Светлая", "light");
-      this.themeDarkItem = this.ThemeItem(theme, "Тёмная", "dark");
+      ToolStripMenuItem theme = new ToolStripMenuItem(UiLanguage.Text("Тема", "Theme"));
+      this.themeSystemItem = this.ThemeItem(theme, UiLanguage.Text("Системная", "System"), "system");
+      this.themeLightItem = this.ThemeItem(theme, UiLanguage.Text("Светлая", "Light"), "light");
+      this.themeDarkItem = this.ThemeItem(theme, UiLanguage.Text("Тёмная", "Dark"), "dark");
       menu.Items.Add((ToolStripItem) theme);
 
-      ToolStripMenuItem font = new ToolStripMenuItem("Шрифт…");
+      ToolStripMenuItem font = new ToolStripMenuItem(UiLanguage.Text("Шрифт…", "Font…"));
       font.Click += delegate { this.ChooseFont(); };
       menu.Items.Add((ToolStripItem) font);
 
-      ToolStripMenuItem precision = new ToolStripMenuItem("Точность");
+      ToolStripMenuItem precision = new ToolStripMenuItem(UiLanguage.Text("Точность", "Precision"));
       foreach (int digits in MainForm.PrecisionChoices)
         this.PrecisionItem(precision, digits);
       menu.Items.Add((ToolStripItem) precision);
 
       menu.Items.Add((ToolStripItem) new ToolStripSeparator());
 
-      ToolStripMenuItem folder = new ToolStripMenuItem("Папка настроек");
+      ToolStripMenuItem folder = new ToolStripMenuItem(UiLanguage.Text("Папка настроек", "Settings folder"));
       folder.Click += delegate { this.OpenSettingsFolder(); };
       menu.Items.Add((ToolStripItem) folder);
 
       string version = System.Diagnostics.FileVersionInfo.GetVersionInfo(Application.ExecutablePath).FileVersion;
       ToolStripMenuItem about = new ToolStripMenuItem("NoteCalque " + version);
-      about.ToolTipText = "Открыть страницу проекта на GitHub";
+      about.ToolTipText = UiLanguage.Text("Открыть страницу проекта на GitHub", "Open the project page on GitHub");
       about.Click += delegate
       {
         try
@@ -299,13 +299,13 @@ namespace NoteCalque
         }
         catch (Exception ex)
         {
-          MessageBox.Show("Не удалось открыть страницу проекта." + Environment.NewLine + ex.Message,
+          MessageBox.Show(UiLanguage.Text("Не удалось открыть страницу проекта.", "Could not open the project page.") + Environment.NewLine + ex.Message,
             "NoteCalque", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
       };
       menu.Items.Add((ToolStripItem) about);
 
-      ToolStripMenuItem exit = new ToolStripMenuItem("Выход");
+      ToolStripMenuItem exit = new ToolStripMenuItem(UiLanguage.Text("Выход", "Exit"));
       exit.Click += delegate
       {
         this.exiting = true;
@@ -330,13 +330,13 @@ namespace NoteCalque
           Microsoft.Win32.Registry.CurrentUser.OpenSubKey(StartupRegistryPath))
           item.Checked = key != null && key.GetValue("NoteCalque") != null;
         item.Enabled = true;
-        item.ToolTipText = "Запускать NoteCalque при входе в Windows для текущего пользователя";
+        item.ToolTipText = UiLanguage.Text("Запускать NoteCalque при входе в Windows для текущего пользователя", "Start NoteCalque when the current user signs in to Windows");
       }
       catch (Exception ex)
       {
         item.Checked = false;
         item.Enabled = false;
-        item.ToolTipText = "Не удалось прочитать состояние автозапуска: " + ex.Message;
+        item.ToolTipText = UiLanguage.Text("Не удалось прочитать состояние автозапуска: ", "Could not read the startup setting: ") + ex.Message;
       }
     }
 
@@ -450,7 +450,7 @@ namespace NoteCalque
                 s.FontSize.ToString(invariant) + "|" +
                 s.Precision.ToString(invariant) + "|" +
                 (s.FontBold ? "1" : "0") + "|" +
-                (s.FontItalic ? "1" : "0"));
+                (s.FontItalic ? "1" : "0") + "|" + UiLanguage.Code);
     }
 
     // Цвет подложки WebView2 виден мгновение до первой отрисовки страницы.
@@ -560,9 +560,9 @@ namespace NoteCalque
       catch (Exception ex)
       {
         MessageBox.Show(
-          "Не удалось запустить WebView2." + Environment.NewLine + Environment.NewLine +
+          UiLanguage.Text("Не удалось запустить WebView2.", "Could not start WebView2.") + Environment.NewLine + Environment.NewLine +
           ex.Message + Environment.NewLine + Environment.NewLine +
-          "Нужен установленный WebView2 Runtime (Microsoft Edge WebView2).",
+          UiLanguage.Text("Нужен установленный WebView2 Runtime (Microsoft Edge WebView2).", "Microsoft Edge WebView2 Runtime must be installed."),
           "NoteCalque", MessageBoxButtons.OK, MessageBoxIcon.Error);
         this.exiting = true;
         this.Close();
@@ -615,7 +615,7 @@ namespace NoteCalque
         }
         catch (System.Runtime.InteropServices.ExternalException)
         {
-          MessageBox.Show(this, "Не удалось скопировать результат: буфер обмена занят. Попробуйте ещё раз.",
+          MessageBox.Show(this, UiLanguage.Text("Не удалось скопировать результат: буфер обмена занят. Попробуйте ещё раз.", "Could not copy the result because the clipboard is busy. Please try again."),
             "NoteCalque", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
       }

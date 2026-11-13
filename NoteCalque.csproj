@@ -80,6 +80,7 @@
     <Compile Include="Src\PortableSettingsProvider.cs" />
     <Compile Include="Src\Program.cs" />
     <Compile Include="Src\Settings.cs" />
+    <Compile Include="Src\UiLanguage.cs" />
     <Compile Include="Src\Win32.cs" />
   </ItemGroup>
   <ItemGroup>
